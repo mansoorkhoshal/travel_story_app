@@ -1,20 +1,40 @@
+require("dotenv").config();
+
+const config = require("./config.json");
+const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const express = require("express");
 const cors = require("cors");
 
 const jwt = require("jsonwebtoken");
+const User = require("./models/user.model");
+mongoose.connect(config.connectionString);
 
 const app = express();
 app.use(express.json());
 
 app.use(cors({ origin: "*" }));
 
-// for testing api
-app.post("/hello", async (req, res) => {
-  return res.status(200).json({ message: "Hello" });
+// Create Account
+app.get("/create-account", async (req, res) => {
+  const { fullName, email, password } = req.body;
+
+  if (!fullName || !email || !password) {
+    return res
+      .status(400)
+      .json({ error: true, message: "All fields are required" });
+  }
+
+  const isUser = await User.findOne({ email });
+  if (isUser) {
+    return res.status
+      .apply(400)
+      .json({ error: true, message: "User already exist" });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
