@@ -7,6 +7,7 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const User = require("./models/user.model");
+const { authenticateToken } = require("./utilities");
 
 const app = express();
 
@@ -85,6 +86,42 @@ app.post("/login", async (req, res) => {
   if (!user) {
     return res.status(400).json({ message: "User not found" });
   }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return res.status(400).json({ message: "Invalid Credentials" });
+  }
+
+  const accessToken = jwt.sign(
+    { userId: user._id },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: "72h",
+    }
+  );
+
+  return res.json({
+    error: false,
+    message: "Login Successful",
+    user: { fullName: user.fullName, email: user.email },
+    accessToken,
+  });
+});
+
+// get user
+app.post("/get-user", authenticateToken, async (req, res) => {
+  const { userId } = req.user;
+
+  const isUser = await User.findOne({ _id: userId });
+
+  if (!isUser) {
+    return res.sendStatus(401);
+  }
+
+  return res.json({
+    user: isUser,
+    message: "", 
+  });
 });
 
 // Server start
