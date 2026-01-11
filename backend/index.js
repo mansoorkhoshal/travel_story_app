@@ -6,8 +6,13 @@ const bcrypt = require("bcrypt");
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const User = require("./models/user.model");
+const upload = require("./multer");
+const fs = require("fs");
+const path = require("path");
+
 const { authenticateToken } = require("./utilities");
+const User = require("./models/user.model");
+const TravelStory = require("./models/travelStroy.model");
 
 const app = express();
 
@@ -120,9 +125,94 @@ app.post("/get-user", authenticateToken, async (req, res) => {
 
   return res.json({
     user: isUser,
-    message: "", 
+    message: "",
   });
 });
+
+// add travel story
+app.post("/add-travel-story", authenticateToken, async (req, res) => {
+  const { title, story, visitedLocation, imageUrl, visitedDate } = req.body;
+  const { userId } = req.user;
+
+  if (!title || !story || !visitedLocation || !imageUrl || !visitedDate) {
+    return res.status(400).json({
+      error: true,
+      message: "All fields are required",
+    });
+  }
+
+  // convert visitedDate from millisecond to Date object.
+  const parsedVisitedDate = new Date(parseInt(visitedDate));
+  try {
+    const travelStory = new TravelStory({
+      title,
+      story,
+      visitedLocation,
+      imageUrl,
+      visitedDate: parsedVisitedDate,
+      userId,
+    });
+
+    await travelStory.save();
+
+    return res.status(201).json({
+      error: false,
+      story: travelStory,
+      message: "Added Successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: true,
+      message: error.message,
+    });
+  }
+});
+
+// get all travel stories
+app.get("/get-all-stories", authenticateToken, async (req, res) => {
+  const { userId } = req.user;
+
+  try {
+    const travelStories = await TravelStory.find({ userId: userId }).sort({
+      isFavourite: -1,
+    });
+    res.status(200).json({ stories: travelStories });
+  } catch (error) {
+    res.status(500).json({ error: true, message: error.message });
+  }
+});
+
+// Routes to handle image upload
+app.get("/image-upload", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ error: true, message: "No Image is Uploaded" });
+    }
+
+    const imageUrl = `http://localhost:3000/uploads/${req.file.filename}`;
+
+    res.status(201).json({ imageUrl });
+  } catch (error) {
+    res.status(500).json({ error: true, message: error.message });
+  }
+});
+
+// Delete an image from uploaded folder
+app.delete("/delete-image", async (req, res) => {
+  const { imageUrl } = req.body;
+
+  if (!imageUrl) {
+    return res
+      .status(400)
+      .json({ error: true, message: "imageUrl parameter is required" });
+  }
+});
+
+// Serve static file from the uploads and assets directory
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/assets", express.static(path.join(__dirname, "assets")));
 
 // Server start
 const PORT = process.env.PORT || 3000;
