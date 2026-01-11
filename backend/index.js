@@ -129,6 +129,57 @@ app.post("/get-user", authenticateToken, async (req, res) => {
   });
 });
 
+// Routes to handle image upload
+app.post("/image-upload", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ error: true, message: "No Image is Uploaded" });
+    }
+
+    const imageUrl = `http://localhost:3000/uploads/${req.file.filename}`;
+
+    res.status(201).json({ imageUrl });
+  } catch (error) {
+    res.status(500).json({ error: true, message: error.message });
+  }
+});
+
+// Delete an image from uploaded folder
+app.delete("/delete-image", async (req, res) => {
+  const { imageUrl } = req.query;
+
+  if (!imageUrl) {
+    return res
+      .status(400)
+      .json({ error: true, message: "imageUrl parameter is required" });
+  }
+
+  try {
+    // Extract the filename from the imageUrl
+    const filename = path.basename(imageUrl);
+
+    // Define the file path
+    const filePath = path.join(__dirname, "uploads", filename);
+
+    // it will check if the file exists
+    if (fs.existsSync(filePath)) {
+      // Delete the file from the upload file
+      fs.unlinkSync(filePath);
+      res.status(200).json({ message: "image deleted successfuly" });
+    } else {
+      res.status(200).json({ error: true, message: "image not found" });
+    }
+  } catch (error) {
+    res.status(200).json({ error: true, message: error.message });
+  }
+});
+
+// Serve static file from the uploads and assets directory
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/assets", express.static(path.join(__dirname, "assets")));
+
 // add travel story
 app.post("/add-travel-story", authenticateToken, async (req, res) => {
   const { title, story, visitedLocation, imageUrl, visitedDate } = req.body;
@@ -181,38 +232,6 @@ app.get("/get-all-stories", authenticateToken, async (req, res) => {
     res.status(500).json({ error: true, message: error.message });
   }
 });
-
-// Routes to handle image upload
-app.get("/image-upload", upload.single("image"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res
-        .status(400)
-        .json({ error: true, message: "No Image is Uploaded" });
-    }
-
-    const imageUrl = `http://localhost:3000/uploads/${req.file.filename}`;
-
-    res.status(201).json({ imageUrl });
-  } catch (error) {
-    res.status(500).json({ error: true, message: error.message });
-  }
-});
-
-// Delete an image from uploaded folder
-app.delete("/delete-image", async (req, res) => {
-  const { imageUrl } = req.body;
-
-  if (!imageUrl) {
-    return res
-      .status(400)
-      .json({ error: true, message: "imageUrl parameter is required" });
-  }
-});
-
-// Serve static file from the uploads and assets directory
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/assets", express.static(path.join(__dirname, "assets")));
 
 // Server start
 const PORT = process.env.PORT || 3000;
